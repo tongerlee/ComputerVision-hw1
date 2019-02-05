@@ -104,10 +104,20 @@ def compute_dictionary(num_workers=2):
 
     train_data = np.load("../data/train_data.npz")
     # ----- TODO -----
-    images_names = train_data['images_names']
-    labels = train_data['labels']
-    sensible_alpha = 100
-    sensible_k = 200
+    # Load training data
+    folderPath = "../data/"
+    imagesNames = train_data['files']
+    # labels = train_data['labels']
+    sensible_alpha = 50
+    sensible_k = 100
+    # subprocesses
+    index = 0
+    for fileName in imagesNames:
+        imagePath = os.join(folderPath, fileName)
+        compute_dictionary_one_image(index, sensible_alpha, imagePath)
+    # calculate K means
+    # kmeans = sklearn.cluster.KMeans(n_clusters=sensible_k).fit(filter_responses)
+    # dictionary = kmeans.cluster_centers_
     
 
 
