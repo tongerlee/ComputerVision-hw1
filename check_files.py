@@ -7,7 +7,8 @@ def check_file(file):
     else:
         print('{} not found!'.format(file))
         return False
-    
+
+
 if ( check_file('../'+andrew_id+'/code/visual_words.py') and \
      check_file('../'+andrew_id+'/code/visual_recog.py') and \
      check_file('../'+andrew_id+'/code/util.py') and \

@@ -30,7 +30,6 @@ def extract_filter_responses(image):
     scales = [1,2,4,8,8*np.sqrt(2)]
     for i in range(len(scales)):
         for c in range(3):
-            #img = skimage.transform.resize(image, (int(ss[0]/scales[i]),int(ss[1]/scales[i])),anti_aliasing=True)
             img = scipy.ndimage.gaussian_filter(image[:,:,c],sigma=scales[i])
             if i == 0 and c == 0:
                 imgs = img[:,:,np.newaxis]
@@ -58,9 +57,15 @@ def get_visual_words(image,dictionary):
     [output]
     * wordmap: numpy.ndarray of shape (H,W)
     '''
-    
-    # ----- TODO -----
-    pass
+    filter_responses = extract_filter_responses(image)
+    H = filter_responses.shape[0]
+    W = filter_responses.shape[1]
+    F = filter_responses.shape[2]
+    filter_responses = filter_responses.reshape(H*W, F)
+    dist = scipy.spatial.distance.cdist(filter_responses, dictionary)
+    wordmap = np.argmin(dist, axis=1)
+    wordmap = wordmap.reshape(H, W)
+    return wordmap
 
 
 def compute_dictionary_one_image(args):
@@ -77,21 +82,18 @@ def compute_dictionary_one_image(args):
     [saved]
     * sampled_response: numpy.ndarray of shape (alpha,3F)
     '''
-
-
     i,alpha,image_path = args
-    # ----- TODO -----
     image = skimage.io.imread(image_path)
     filter_responses = extract_filter_responses(image)
     x_axis = np.random.choice(filter_responses.shape[0], alpha)
     y_axis = np.random.choice(filter_responses.shape[1], alpha)
     response = filter_responses[x_axis, y_axis, :]
-    if not os.path.exists("../tmp/"):
-        os.makedirs("../tmp/")
-    np.save("../tmp/"+ str(i) + ".npy", response)
+    if not os.path.exists("../tmp/train"):
+        os.makedirs("../tmp/train")
+    np.save("../tmp/train/"+ str(i) + ".npy", response)
     
     
-def compute_dictionary(num_workers=2):
+def compute_dictionary(num_workers=4):
     '''
     Creates the dictionary of visual words by clustering using k-means.
 
@@ -101,23 +103,25 @@ def compute_dictionary(num_workers=2):
     [saved]
     * dictionary: numpy.ndarray of shape (K,3F)
     '''
-
     train_data = np.load("../data/train_data.npz")
-    # ----- TODO -----
     # Load training data
     folderPath = "../data/"
     imagesNames = train_data['files']
-    # labels = train_data['labels']
-    sensible_alpha = 50
+    sensible_alpha = 200
     sensible_k = 100
     # subprocesses
-    index = 0
-    for fileName in imagesNames:
-        imagePath = os.join(folderPath, fileName)
-        compute_dictionary_one_image(index, sensible_alpha, imagePath)
+    with multiprocessing.Pool(processes = num_workers) as pool:
+        args = [(i, sensible_alpha, folderPath + imageName) for i, imageName in enumerate(imagesNames)]
+        pool.map(compute_dictionary_one_image, args)
+    filter_responses = None
+    for i in range(imagesNames.shape[0]):
+        if filter_responses is None:
+            filter_responses = np.load("../tmp/train/"+ str(i) + ".npy")
+        else:
+            filter_responses = np.vstack((filter_responses, np.load("../tmp/train/"+ str(i) + ".npy")))
     # calculate K means
-    # kmeans = sklearn.cluster.KMeans(n_clusters=sensible_k).fit(filter_responses)
-    # dictionary = kmeans.cluster_centers_
+    kmeans = sklearn.cluster.KMeans(n_clusters=sensible_k).fit(filter_responses)
+    dictionary = kmeans.cluster_centers_
+    np.save("dictionary.npy", dictionary)
     
-
 
